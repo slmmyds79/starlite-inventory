@@ -10,6 +10,7 @@ import ItemDetail from './components/ItemDetail';
 import Events from './components/Events';
 import EventDetail from './components/EventDetail';
 import Scanner from './components/Scanner';
+import Reports from './components/Reports';
 import AddEditItem from './components/AddEditItem';
 import CheckoutModal from './components/CheckoutModal';
 import CheckinModal from './components/CheckinModal';
@@ -350,6 +351,9 @@ function App() {
       )}
       {page === 'scanner' && (
         <Scanner items={items} navigate={navigate} openCheckout={openCheckout} openCheckin={openCheckin} />
+      )}
+      {page === 'reports' && (
+        <Reports items={items} events={events} activityLog={activityLog} />
       )}
 
       <BottomNav page={page} setPage={(p) => { setPrevPage(page); setPage(p); }} />
