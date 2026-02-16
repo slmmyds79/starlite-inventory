@@ -9,8 +9,14 @@ export default function Events({ events, navigate, openNewEvent }) {
 
   return (
     <div className="page">
-      {/* Upcoming */}
-      <div className="section-header">Upcoming Events</div>
+      {/* Header with New Event button */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+        <div className="section-header" style={{ margin: 0 }}>Upcoming Events</div>
+        <button className="btn btn-primary btn-sm" style={{ width: 'auto' }} onClick={openNewEvent}>
+          + New Event
+        </button>
+      </div>
+
       {upcoming.length === 0 ? (
         <div className="empty-state" style={{ padding: 20 }}>
           <p>No upcoming events</p>
@@ -50,7 +56,7 @@ export default function Events({ events, navigate, openNewEvent }) {
         </>
       )}
 
-      {/* FAB */}
+      {/* FAB (keep as secondary) */}
       <button className="fab" onClick={openNewEvent} title="New Event">+</button>
     </div>
   );

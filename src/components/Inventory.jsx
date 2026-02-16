@@ -49,15 +49,20 @@ export default function Inventory({ items, navigate, openAddItem }) {
 
   return (
     <div className="page">
-      {/* Search */}
-      <div className="search-wrap">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-        <input
-          className="search-input"
-          placeholder="Search by name, ID, category, color..."
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-        />
+      {/* Search + Add Button */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 14, alignItems: 'center' }}>
+        <div className="search-wrap" style={{ flex: 1, marginBottom: 0 }}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <input
+            className="search-input"
+            placeholder="Search by name, ID, category..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+        </div>
+        <button className="btn btn-primary btn-sm" style={{ whiteSpace: 'nowrap', height: 42 }} onClick={openAddItem}>
+          + Add Item
+        </button>
       </div>
 
       {/* Filter Tabs */}
@@ -116,7 +121,11 @@ export default function Inventory({ items, navigate, openAddItem }) {
       ) : (
         filtered.map(item => (
           <div key={item.id} className="item-row" onClick={() => navigate('itemDetail', { item })}>
-            <div className="item-icon">{categoryIcons[item.category] || '📦'}</div>
+            {item.image ? (
+              <img src={item.image} alt="" className="item-thumb" />
+            ) : (
+              <div className="item-icon">{categoryIcons[item.category] || '📦'}</div>
+            )}
             <div className="item-info">
               <div className="item-name">{item.name}</div>
               <div className="item-meta">
@@ -128,7 +137,7 @@ export default function Inventory({ items, navigate, openAddItem }) {
         ))
       )}
 
-      {/* FAB */}
+      {/* FAB (keep as secondary) */}
       <button className="fab" onClick={openAddItem} title="Add New Item">+</button>
     </div>
   );

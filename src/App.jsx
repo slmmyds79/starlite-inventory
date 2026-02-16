@@ -11,6 +11,7 @@ import Events from './components/Events';
 import EventDetail from './components/EventDetail';
 import Scanner from './components/Scanner';
 import Reports from './components/Reports';
+import ReportOverlay from './components/ReportOverlay';
 import AddEditItem from './components/AddEditItem';
 import CheckoutModal from './components/CheckoutModal';
 import CheckinModal from './components/CheckinModal';
@@ -77,6 +78,7 @@ function App() {
   const [showFlag, setShowFlag] = useState(false);
   const [flagItemId, setFlagItemId] = useState(null);
   const [showNewEvent, setShowNewEvent] = useState(false);
+  const [reportType, setReportType] = useState(null);
 
   const showToast = useCallback((msg) => {
     setToast(msg);
@@ -126,11 +128,12 @@ function App() {
         await updateDoc(doc(db, 'inventoryItems', editingItem.id), itemData);
       }
       setItems(prev => prev.map(i => i.id === editingItem.id ? { ...i, ...itemData } : i));
-      addLogEntry('maintenance', `Updated item details: ${itemData.name}`);
+      addLogEntry('maintenance', 'Updated item details: ' + itemData.name);
       showToast('Item updated successfully!');
     } else {
       const newId = generateItemId(items);
-      const newItem = { ...itemData, itemId: newId, qtyOut: 0, flag: null, image: '', lastUsed: '' };
+      const newItem = { ...itemData, itemId: newId, qtyOut: 0, flag: null, lastUsed: '' };
+      if (!newItem.image) newItem.image = '';
       if (!useDemo) {
         const ref = await addDoc(collection(db, 'inventoryItems'), newItem);
         newItem.id = ref.id;
@@ -138,7 +141,7 @@ function App() {
         newItem.id = 'item' + Date.now();
       }
       setItems(prev => [...prev, newItem]);
-      addLogEntry('maintenance', `Added new item: ${newItem.qtyOwned}× ${newItem.name} to ${newItem.location}`);
+      addLogEntry('maintenance', 'Added new item: ' + newItem.qtyOwned + '× ' + newItem.name + ' to ' + newItem.location);
       showToast('Item added successfully!');
     }
     setShowAddEdit(false);
@@ -154,10 +157,21 @@ function App() {
       await deleteDoc(doc(db, 'inventoryItems', item.id));
     }
     setItems(prev => prev.filter(i => i.id !== item.id));
-    addLogEntry('maintenance', `Removed from inventory: ${item.name}`);
+    addLogEntry('maintenance', 'Removed from inventory: ' + item.name);
     showToast('Item removed');
     setSelectedItem(null);
     setPage('inventory');
+  };
+
+  const handleImageUpdate = async (itemId, imageData) => {
+    const item = items.find(i => i.id === itemId);
+    if (!item) return;
+    if (!useDemo) {
+      await updateDoc(doc(db, 'inventoryItems', item.id), { image: imageData });
+    }
+    setItems(prev => prev.map(i => i.id === itemId ? { ...i, image: imageData } : i));
+    addLogEntry('maintenance', 'Added photo for ' + item.name + ' (' + item.itemId + ')');
+    showToast('Photo added!');
   };
 
   const saveEvent = async (eventData) => {
@@ -170,7 +184,7 @@ function App() {
       newEvent.id = 'evt' + Date.now();
     }
     setEvents(prev => [...prev, newEvent]);
-    addLogEntry('maintenance', `Created event: ${newEvent.name}`);
+    addLogEntry('maintenance', 'Created event: ' + newEvent.name);
     showToast('Event created!');
     setShowNewEvent(false);
     return newEvent;
@@ -205,7 +219,7 @@ function App() {
       if (!useDemo) {
         await updateDoc(doc(db, 'inventoryItems', item.id), { qtyOut: item.qtyOut });
       }
-      addLogEntry('checkout', `Checked out ${ci.qty}× ${item.name} for ${event.name} by ${checkedOutBy}`);
+      addLogEntry('checkout', 'Checked out ' + ci.qty + '× ' + item.name + ' for ' + event.name + ' by ' + checkedOutBy);
     }
 
     const updatedEvent = { ...event, items: updatedEventItems };
@@ -256,9 +270,9 @@ function App() {
     setEvents(prev => prev.map(e => e.id === event.id ? updatedEvent : e));
     setSelectedEvent(updatedEvent);
 
-    addLogEntry('checkin', `Returned ${returnQty}× ${invItem?.name || itemId} — ${returnCondition} condition`);
+    addLogEntry('checkin', 'Returned ' + returnQty + '× ' + (invItem?.name || itemId) + ' — ' + returnCondition + ' condition');
     if (['Poor', 'Needs Repair', 'Damaged'].includes(returnCondition)) {
-      addLogEntry('maintenance', `⚠️ ${invItem?.name} flagged for maintenance: ${returnCondition}`);
+      addLogEntry('maintenance', '⚠️ ' + (invItem?.name || '') + ' flagged for maintenance: ' + returnCondition);
     }
     showToast('Item returned!');
     setShowCheckin(false);
@@ -271,7 +285,7 @@ function App() {
       await updateDoc(doc(db, 'inventoryItems', item.id), { flag: flagData });
     }
     setItems(prev => prev.map(i => i.id === item.id ? { ...i, flag: flagData } : i));
-    addLogEntry('maintenance', `Flagged ${item.name} for ${flagData.type}: ${flagData.description}`);
+    addLogEntry('maintenance', 'Flagged ' + item.name + ' for ' + flagData.type + ': ' + flagData.description);
     showToast('Item flagged');
     setShowFlag(false);
   };
@@ -281,7 +295,7 @@ function App() {
       await updateDoc(doc(db, 'inventoryItems', item.id), { flag: null });
     }
     setItems(prev => prev.map(i => i.id === item.id ? { ...i, flag: null } : i));
-    addLogEntry('maintenance', `Cleared flag on ${item.name}`);
+    addLogEntry('maintenance', 'Cleared flag on ' + item.name);
     showToast('Flag cleared');
   };
 
@@ -304,6 +318,7 @@ function App() {
   const openCheckout = (itemId, eventId) => { setCheckoutItemId(itemId); setCheckoutEventId(eventId); setShowCheckout(true); };
   const openCheckin = (itemId) => { setCheckinItemId(itemId); setShowCheckin(true); };
   const openFlag = (itemId) => { setFlagItemId(itemId); setShowFlag(true); };
+  const openReport = (type) => { setReportType(type); };
 
   if (loading) {
     return (
@@ -320,7 +335,7 @@ function App() {
       <TopBar useDemo={useDemo} />
 
       {page === 'dashboard' && (
-        <Dashboard items={items} events={events} activityLog={activityLog} navigate={navigate} />
+        <Dashboard items={items} events={events} activityLog={activityLog} navigate={navigate} openReport={openReport} />
       )}
       {page === 'inventory' && (
         <Inventory items={items} navigate={navigate} openAddItem={openAddItem} />
@@ -335,6 +350,7 @@ function App() {
           openFlag={openFlag}
           clearFlag={clearFlag}
           removeItem={removeItem}
+          onImageUpdate={handleImageUpdate}
         />
       )}
       {page === 'events' && (
@@ -353,7 +369,7 @@ function App() {
         <Scanner items={items} navigate={navigate} openCheckout={openCheckout} openCheckin={openCheckin} />
       )}
       {page === 'reports' && (
-        <Reports items={items} events={events} activityLog={activityLog} />
+        <Reports items={items} events={events} activityLog={activityLog} openReport={openReport} />
       )}
 
       <BottomNav page={page} setPage={(p) => { setPrevPage(page); setPage(p); }} />
@@ -388,6 +404,17 @@ function App() {
       )}
       {showNewEvent && (
         <NewEventModal onSave={saveEvent} onClose={() => setShowNewEvent(false)} />
+      )}
+
+      {/* Report Overlay */}
+      {reportType && (
+        <ReportOverlay
+          type={reportType}
+          items={items}
+          events={events}
+          activityLog={activityLog}
+          onClose={() => setReportType(null)}
+        />
       )}
 
       {toast && <Toast message={toast} />}

@@ -2,7 +2,7 @@ import React from 'react';
 import { categoryIcons, conditionColors } from '../utils/categories';
 import { formatCurrency, formatDate } from '../utils/helpers';
 
-export default function Dashboard({ items, events, activityLog, navigate }) {
+export default function Dashboard({ items, events, activityLog, navigate, openReport }) {
   const totalItems = items.length;
   const totalPieces = items.reduce((s, i) => s + (i.qtyOwned || 0), 0);
   const totalOut = items.reduce((s, i) => s + (i.qtyOut || 0), 0);
@@ -41,6 +41,30 @@ export default function Dashboard({ items, events, activityLog, navigate }) {
         </div>
       </div>
 
+      {/* Quick Report Buttons */}
+      {openReport && (
+        <div className="quick-actions">
+          <button className="quick-action-btn" onClick={() => openReport('full')}>
+            <span className="icon">📋</span>Full Report
+          </button>
+          <button className="quick-action-btn" onClick={() => openReport('flags')}>
+            <span className="icon">🚩</span>Flags Report
+          </button>
+          <button className="quick-action-btn" onClick={() => openReport('value')}>
+            <span className="icon">💰</span>Value Report
+          </button>
+          <button className="quick-action-btn" onClick={() => openReport('checkedout')}>
+            <span className="icon">📤</span>Checked Out
+          </button>
+          <button className="quick-action-btn" onClick={() => openReport('events')}>
+            <span className="icon">📅</span>Events Report
+          </button>
+          <button className="quick-action-btn" onClick={() => openReport('upcoming')}>
+            <span className="icon">🔜</span>Upcoming
+          </button>
+        </div>
+      )}
+
       {/* Upcoming Events */}
       {upcomingEvents.length > 0 && (
         <div className="card">
@@ -61,22 +85,18 @@ export default function Dashboard({ items, events, activityLog, navigate }) {
       {/* Flagged Items */}
       {flagged.length > 0 && (
         <div className="card">
-          <div className="card-header">🚩 Flagged Items</div>
+          <div className="card-header">🚩 Flagged Items ({flagged.length})</div>
           {flagged.sort((a, b) => {
             const p = { high: 0, medium: 1, low: 2 };
             return (p[a.flag?.priority] || 2) - (p[b.flag?.priority] || 2);
           }).map(item => (
-            <div key={item.id} className="item-row" onClick={() => navigate('itemDetail', { item })}>
-              <div className="item-icon" style={{ background: item.flag?.type === 'replace' ? '#fee2e2' : '#fef3c7' }}>
-                {item.flag?.type === 'replace' ? '🔴' : '🟠'}
+            <div key={item.id} className={`flag-bar ${item.flag?.type === 'replace' ? 'replace' : 'repair'}`} style={{ cursor: 'pointer', marginBottom: 8 }} onClick={() => navigate('itemDetail', { item })}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--navy)' }}>
+                  {item.name} — {item.flag?.type === 'repair' ? 'Repair' : 'Replace'} · {(item.flag?.priority || 'medium').charAt(0).toUpperCase() + (item.flag?.priority || 'medium').slice(1)}
+                </div>
+                <div style={{ fontWeight: 400, fontSize: 12, marginTop: 2, color: 'var(--gray-700)' }}>{item.flag?.description}</div>
               </div>
-              <div className="item-info">
-                <div className="item-name">{item.name}</div>
-                <div className="item-meta">{item.flag?.description} · Priority: {item.flag?.priority}</div>
-              </div>
-              <span className={`badge ${item.flag?.type === 'replace' ? 'badge-red' : 'badge-orange'}`}>
-                {item.flag?.type === 'replace' ? 'Replace' : 'Repair'}
-              </span>
             </div>
           ))}
         </div>

@@ -1,15 +1,58 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { categoryIcons, conditionColors } from '../utils/categories';
 import { formatDate, formatCurrency } from '../utils/helpers';
 
-export default function ItemDetail({ item, goBack, openEditItem, openCheckout, openCheckin, openFlag, clearFlag, removeItem }) {
+function generateBarcodeVisual(id) {
+  if (!id) return null;
+  const seed = id.split('').reduce((s, c) => s + c.charCodeAt(0), 0);
+  const bars = [];
+  for (let i = 0; i < 40; i++) {
+    const w = ((seed * (i + 1) * 7) % 3) + 1;
+    const gap = ((seed * (i + 1) * 13) % 2) + 1;
+    const h = 40 + (i % 5) * 2;
+    bars.push(<div key={i} className="barcode-bar" style={{ width: w, height: h, marginRight: gap }} />);
+  }
+  return (
+    <div className="barcode-display">
+      <div className="barcode-bars">{bars}</div>
+      <div className="barcode-text">{id}</div>
+    </div>
+  );
+}
+
+export default function ItemDetail({ item, goBack, openEditItem, openCheckout, openCheckin, openFlag, clearFlag, removeItem, onImageUpdate }) {
   const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
+  const photoInputRef = useRef(null);
 
   if (!item) return null;
 
   const available = (item.qtyOwned || 0) - (item.qtyOut || 0);
   const totalValue = (item.qtyOwned || 0) * (item.unitValue || 0);
   const cc = conditionColors[item.condition] || {};
+
+  const handleQuickPhoto = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const maxDim = 800;
+        let w = img.width, h = img.height;
+        if (w > maxDim || h > maxDim) {
+          if (w > h) { h = h * maxDim / w; w = maxDim; }
+          else { w = w * maxDim / h; h = maxDim; }
+        }
+        canvas.width = w;
+        canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        if (onImageUpdate) onImageUpdate(item.id, canvas.toDataURL('image/jpeg', 0.7));
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  };
 
   return (
     <div className="page">
@@ -20,7 +63,11 @@ export default function ItemDetail({ item, goBack, openEditItem, openCheckout, o
 
       {/* Header */}
       <div className="detail-header">
-        <div className="detail-icon">{categoryIcons[item.category] || '📦'}</div>
+        {item.image ? (
+          <img src={item.image} alt={item.name} className="detail-photo" />
+        ) : (
+          <div className="detail-icon">{categoryIcons[item.category] || '📦'}</div>
+        )}
         <div className="detail-name">{item.name}</div>
         <div className="detail-id">{item.itemId}</div>
         {item.condition && (
@@ -28,6 +75,31 @@ export default function ItemDetail({ item, goBack, openEditItem, openCheckout, o
             {item.condition}
           </span>
         )}
+        {!item.image && onImageUpdate && (
+          <>
+            <button
+              className="btn btn-outline btn-sm"
+              style={{ marginTop: 8, width: 'auto', display: 'inline-flex' }}
+              onClick={() => photoInputRef.current?.click()}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
+                <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/>
+                <circle cx="12" cy="13" r="4"/>
+              </svg>
+              Add Photo
+            </button>
+            <input
+              ref={photoInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              onChange={handleQuickPhoto}
+              style={{ display: 'none' }}
+            />
+          </>
+        )}
+        {/* Barcode */}
+        {generateBarcodeVisual(item.itemId)}
       </div>
 
       {/* Flag Bar */}

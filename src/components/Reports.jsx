@@ -11,7 +11,7 @@ const REPORT_TABS = [
   { id: 'activity', label: 'Activity', icon: '📋' },
 ];
 
-export default function Reports({ items, events, activityLog }) {
+export default function Reports({ items, events, activityLog, openReport }) {
   const [tab, setTab] = useState('overview');
 
   // ─── Computed Data ───
@@ -74,7 +74,7 @@ export default function Reports({ items, events, activityLog }) {
       i.qtyOwned || 0, i.qtyOut || 0, (i.qtyOwned || 0) - (i.qtyOut || 0),
       i.condition, i.unitValue || 0, ((i.qtyOwned || 0) * (i.unitValue || 0)).toFixed(2),
       i.location, i.bin || '', i.vendor || '', i.purchaseDate || '', i.lastUsed || '',
-      i.flag ? `${i.flag.type}: ${i.flag.description}` : 'None', i.notes || ''
+      i.flag ? i.flag.type + ': ' + i.flag.description : 'None', i.notes || ''
     ]);
     downloadCSV('starlite_inventory_export.csv', headers, rows);
   };
@@ -99,7 +99,7 @@ export default function Reports({ items, events, activityLog }) {
   const downloadCSV = (filename, headers, rows) => {
     const escape = (val) => {
       const str = String(val ?? '');
-      return str.includes(',') || str.includes('"') || str.includes('\n') ? `"${str.replace(/"/g, '""')}"` : str;
+      return str.includes(',') || str.includes('"') || str.includes('\n') ? '"' + str.replace(/"/g, '""') + '"' : str;
     };
     const csv = [headers.map(escape).join(','), ...rows.map(r => r.map(escape).join(','))].join('\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -122,7 +122,7 @@ export default function Reports({ items, events, activityLog }) {
           </div>
           <div style={{ background: 'var(--gray-100)', borderRadius: 6, height: 8, overflow: 'hidden' }}>
             <div style={{
-              width: `${maxVal > 0 ? Math.max(2, (typeof val === 'number' ? val : 0) / maxVal * 100) : 0}%`,
+              width: maxVal > 0 ? Math.max(2, (typeof val === 'number' ? val : 0) / maxVal * 100) + '%' : '0%',
               height: '100%',
               borderRadius: 6,
               background: colorFn ? colorFn(label, idx) : 'var(--navy)',
@@ -137,6 +137,21 @@ export default function Reports({ items, events, activityLog }) {
   // ─── Render Sections ───
   const renderOverview = () => (
     <>
+      {/* Print Report Buttons */}
+      {openReport && (
+        <div className="card">
+          <div className="card-header">📊 Print Reports</div>
+          <div className="quick-actions" style={{ marginBottom: 0 }}>
+            <button className="quick-action-btn" onClick={() => openReport('full')}><span className="icon">📋</span>Full Report</button>
+            <button className="quick-action-btn" onClick={() => openReport('flags')}><span className="icon">🚩</span>Flags</button>
+            <button className="quick-action-btn" onClick={() => openReport('value')}><span className="icon">💰</span>Value</button>
+            <button className="quick-action-btn" onClick={() => openReport('checkedout')}><span className="icon">📤</span>Checked Out</button>
+            <button className="quick-action-btn" onClick={() => openReport('events')}><span className="icon">📅</span>Events</button>
+            <button className="quick-action-btn" onClick={() => openReport('upcoming')}><span className="icon">🔜</span>Upcoming</button>
+          </div>
+        </div>
+      )}
+
       {/* Key Metrics */}
       <div className="card">
         <div className="card-header">📊 Inventory Summary</div>
@@ -212,15 +227,9 @@ export default function Reports({ items, events, activityLog }) {
       <div className="card">
         <div className="card-header">📥 Export Data</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <button className="btn btn-primary btn-sm" onClick={exportInventoryCSV} style={{ width: '100%' }}>
-            📦 Export Full Inventory (CSV)
-          </button>
-          <button className="btn btn-outline btn-sm" onClick={exportEventsCSV} style={{ width: '100%' }}>
-            📅 Export Events (CSV)
-          </button>
-          <button className="btn btn-outline btn-sm" onClick={exportActivityCSV} style={{ width: '100%' }}>
-            📋 Export Activity Log (CSV)
-          </button>
+          <button className="btn btn-primary btn-sm" onClick={exportInventoryCSV} style={{ width: '100%' }}>📦 Export Full Inventory (CSV)</button>
+          <button className="btn btn-outline btn-sm" onClick={exportEventsCSV} style={{ width: '100%' }}>📅 Export Events (CSV)</button>
+          <button className="btn btn-outline btn-sm" onClick={exportActivityCSV} style={{ width: '100%' }}>📋 Export Activity Log (CSV)</button>
         </div>
       </div>
     </>
@@ -233,7 +242,7 @@ export default function Reports({ items, events, activityLog }) {
         <div className="card">
           <div className="card-header">📁 Inventory by Category</div>
           <BarChart
-            data={categoryData.map(([cat, d]) => [`${categoryIcons[cat] || '📦'} ${cat}`, d.value])}
+            data={categoryData.map(([cat, d]) => [(categoryIcons[cat] || '📦') + ' ' + cat, d.value])}
             maxVal={maxVal}
             colorFn={(_, i) => {
               const colors = ['#1B2A4A', '#D4A84B', '#3b82f6', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16', '#f97316', '#6366f1', '#14b8a6'];
@@ -241,8 +250,6 @@ export default function Reports({ items, events, activityLog }) {
             }}
           />
         </div>
-
-        {/* Category Detail Table */}
         <div className="card">
           <div className="card-header">📋 Category Details</div>
           <div style={{ overflowX: 'auto' }}>
@@ -281,73 +288,56 @@ export default function Reports({ items, events, activityLog }) {
     );
   };
 
-  const renderConditions = () => {
-    const maxCount = Math.max(...conditionData.map(([, d]) => d.count), 1);
-    return (
-      <>
-        <div className="card">
-          <div className="card-header">🔍 Condition Breakdown</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {conditionData.map(([cond, d]) => {
-              const colors = conditionColors[cond] || { bg: '#f3f4f6', text: '#374151', border: '#d1d5db' };
-              return (
-                <div key={cond} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', background: colors.bg, borderRadius: 10, border: `1px solid ${colors.border}` }}>
-                  <span style={{ fontSize: 24 }}>{conditionEmojis[cond] || '❓'}</span>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 700, color: colors.text, fontSize: 14 }}>{cond}</div>
-                    <div style={{ fontSize: 12, color: colors.text, opacity: 0.8 }}>
-                      {d.count} items · {d.qty} total qty · {formatCurrency(d.value)}
-                    </div>
-                  </div>
-                  <div style={{ fontSize: 20, fontWeight: 700, color: colors.text, fontFamily: "'Cormorant Garamond', serif" }}>
-                    {d.count}
-                  </div>
+  const renderConditions = () => (
+    <>
+      <div className="card">
+        <div className="card-header">🔍 Condition Breakdown</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {conditionData.map(([cond, d]) => {
+            const colors = conditionColors[cond] || { bg: '#f3f4f6', text: '#374151', border: '#d1d5db' };
+            return (
+              <div key={cond} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', background: colors.bg, borderRadius: 10, border: '1px solid ' + colors.border }}>
+                <span style={{ fontSize: 24 }}>{conditionEmojis[cond] || '❓'}</span>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 700, color: colors.text, fontSize: 14 }}>{cond}</div>
+                  <div style={{ fontSize: 12, color: colors.text, opacity: 0.8 }}>{d.count} items · {d.qty} total qty · {formatCurrency(d.value)}</div>
                 </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Items needing attention */}
-        {items.filter(i => ['Fair', 'Poor', 'Needs Repair', 'Damaged'].includes(i.condition)).length > 0 && (
-          <div className="card">
-            <div className="card-header">🚨 Items Needing Attention</div>
-            {items.filter(i => ['Fair', 'Poor', 'Needs Repair', 'Damaged'].includes(i.condition)).map(item => (
-              <div key={item.id} className="item-row" style={{ cursor: 'default' }}>
-                <div className="item-icon">{categoryIcons[item.category] || '📦'}</div>
-                <div className="item-info">
-                  <div className="item-name">{item.name}</div>
-                  <div className="item-meta">{item.category} · {item.location} {item.bin}</div>
-                </div>
-                <span className="badge badge-red">{item.condition}</span>
+                <div style={{ fontSize: 20, fontWeight: 700, color: colors.text, fontFamily: "'Cormorant Garamond', serif" }}>{d.count}</div>
               </div>
-            ))}
-          </div>
-        )}
-      </>
-    );
-  };
+            );
+          })}
+        </div>
+      </div>
+      {items.filter(i => ['Fair', 'Poor', 'Needs Repair', 'Damaged'].includes(i.condition)).length > 0 && (
+        <div className="card">
+          <div className="card-header">🚨 Items Needing Attention</div>
+          {items.filter(i => ['Fair', 'Poor', 'Needs Repair', 'Damaged'].includes(i.condition)).map(item => (
+            <div key={item.id} className="item-row" style={{ cursor: 'default' }}>
+              <div className="item-icon">{categoryIcons[item.category] || '📦'}</div>
+              <div className="item-info">
+                <div className="item-name">{item.name}</div>
+                <div className="item-meta">{item.category} · {item.location} {item.bin}</div>
+              </div>
+              <span className="badge badge-red">{item.condition}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </>
+  );
 
   const renderEvents = () => {
     const upcoming = events.filter(e => e.status === 'upcoming').sort((a, b) => (a.date || '').localeCompare(b.date || ''));
     const completed = events.filter(e => e.status === 'completed').sort((a, b) => (b.date || '').localeCompare(a.date || ''));
-
     return (
       <>
         <div className="card">
           <div className="card-header">📅 Event Summary</div>
           <div className="stats-grid">
-            <div className="stat-card" style={{ cursor: 'default' }}>
-              <div className="stat-number">{events.length}</div>
-              <div className="stat-label">Total Events</div>
-            </div>
-            <div className="stat-card" style={{ cursor: 'default' }}>
-              <div className="stat-number">{upcoming.length}</div>
-              <div className="stat-label">Upcoming</div>
-            </div>
+            <div className="stat-card" style={{ cursor: 'default' }}><div className="stat-number">{events.length}</div><div className="stat-label">Total Events</div></div>
+            <div className="stat-card" style={{ cursor: 'default' }}><div className="stat-number">{upcoming.length}</div><div className="stat-label">Upcoming</div></div>
           </div>
         </div>
-
         {upcoming.length > 0 && (
           <div className="card">
             <div className="card-header">🔜 Upcoming Events</div>
@@ -357,9 +347,7 @@ export default function Reports({ items, events, activityLog }) {
               return (
                 <div key={evt.id} style={{ padding: '12px 0', borderBottom: '1px solid var(--gray-100)' }}>
                   <div style={{ fontWeight: 700, color: 'var(--navy)', fontSize: 14 }}>{evt.name}</div>
-                  <div style={{ fontSize: 12, color: 'var(--gray-500)', marginTop: 2 }}>
-                    {formatDate(evt.date)} · {evt.venue}
-                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--gray-500)', marginTop: 2 }}>{formatDate(evt.date)} · {evt.venue}</div>
                   <div style={{ fontSize: 12, marginTop: 4 }}>
                     <span className="badge badge-blue">{totalItems} items out</span>
                     {returnedItems > 0 && <span className="badge badge-green" style={{ marginLeft: 4 }}>{returnedItems} returned</span>}
@@ -369,7 +357,6 @@ export default function Reports({ items, events, activityLog }) {
             })}
           </div>
         )}
-
         {completed.length > 0 && (
           <div className="card">
             <div className="card-header">✅ Completed Events</div>
@@ -378,9 +365,7 @@ export default function Reports({ items, events, activityLog }) {
               return (
                 <div key={evt.id} style={{ padding: '12px 0', borderBottom: '1px solid var(--gray-100)' }}>
                   <div style={{ fontWeight: 600, color: 'var(--navy)', fontSize: 14 }}>{evt.name}</div>
-                  <div style={{ fontSize: 12, color: 'var(--gray-500)', marginTop: 2 }}>
-                    {formatDate(evt.date)} · {evt.venue} · {totalItems} items
-                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--gray-500)', marginTop: 2 }}>{formatDate(evt.date)} · {evt.venue} · {totalItems} items</div>
                 </div>
               );
             })}
@@ -395,12 +380,9 @@ export default function Reports({ items, events, activityLog }) {
       <div className="card">
         <div className="card-header">⚠️ Flagged Items ({flaggedItems.length})</div>
         {flaggedItems.length === 0 ? (
-          <div className="empty-state" style={{ padding: '20px 0' }}>
-            <p>No flagged items — everything looks good!</p>
-          </div>
+          <div className="empty-state" style={{ padding: '20px 0' }}><p>No flagged items — everything looks good!</p></div>
         ) : (
           <>
-            {/* Summary */}
             <div className="stats-grid" style={{ marginBottom: 12 }}>
               <div className="stat-card" style={{ cursor: 'default', background: 'var(--orange-bg)', border: '1px solid var(--orange-border)' }}>
                 <div className="stat-number" style={{ color: '#92400e' }}>{flaggedItems.filter(i => i.flag?.type === 'repair').length}</div>
@@ -411,8 +393,6 @@ export default function Reports({ items, events, activityLog }) {
                 <div className="stat-label">Replacements</div>
               </div>
             </div>
-
-            {/* Estimated Costs */}
             {(() => {
               const totalCost = flaggedItems.reduce((s, i) => s + (i.flag?.cost || 0), 0);
               return totalCost > 0 ? (
@@ -422,16 +402,14 @@ export default function Reports({ items, events, activityLog }) {
                 </div>
               ) : null;
             })()}
-
-            {/* Flagged Item List */}
             {flaggedItems.map(item => (
-              <div key={item.id} className={`flag-bar ${item.flag?.type || 'repair'}`} style={{ marginBottom: 8 }}>
+              <div key={item.id} className={'flag-bar ' + (item.flag?.type || 'repair')} style={{ marginBottom: 8 }}>
                 <div style={{ fontSize: 24 }}>{item.flag?.type === 'replace' ? '🔄' : '🔧'}</div>
                 <div className="flag-bar-content">
                   <div className="flag-bar-type">{item.name}</div>
                   <div className="flag-bar-desc">
                     {item.flag?.type === 'repair' ? 'Repair' : 'Replace'} · Priority: {item.flag?.priority || 'medium'}
-                    {item.flag?.cost ? ` · Est: ${formatCurrency(item.flag.cost)}` : ''}
+                    {item.flag?.cost ? ' · Est: ' + formatCurrency(item.flag.cost) : ''}
                   </div>
                   <div className="flag-bar-desc">{item.flag?.description}</div>
                 </div>
@@ -448,14 +426,10 @@ export default function Reports({ items, events, activityLog }) {
       <div className="card">
         <div className="card-header">📋 Full Activity Log ({activityLog.length} entries)</div>
         <div style={{ marginBottom: 12 }}>
-          <button className="btn btn-outline btn-sm" onClick={exportActivityCSV} style={{ width: '100%' }}>
-            📥 Export Activity Log (CSV)
-          </button>
+          <button className="btn btn-outline btn-sm" onClick={exportActivityCSV} style={{ width: '100%' }}>📥 Export Activity Log (CSV)</button>
         </div>
         {activityLog.length === 0 ? (
-          <div className="empty-state" style={{ padding: '20px 0' }}>
-            <p>No activity recorded yet</p>
-          </div>
+          <div className="empty-state" style={{ padding: '20px 0' }}><p>No activity recorded yet</p></div>
         ) : (
           activityLog.map((entry, idx) => {
             const dotColor = entry.type === 'checkout' ? 'var(--orange)' : entry.type === 'checkin' ? 'var(--green)' : 'var(--blue)';
@@ -476,20 +450,14 @@ export default function Reports({ items, events, activityLog }) {
 
   return (
     <div className="page">
-      {/* Report Tab Selector */}
       <div className="report-tabs">
         {REPORT_TABS.map(t => (
-          <button
-            key={t.id}
-            className={`report-tab-btn ${tab === t.id ? 'active' : ''}`}
-            onClick={() => setTab(t.id)}
-          >
+          <button key={t.id} className={'report-tab-btn ' + (tab === t.id ? 'active' : '')} onClick={() => setTab(t.id)}>
             <span className="report-tab-icon">{t.icon}</span>
             <span className="report-tab-label">{t.label}</span>
           </button>
         ))}
       </div>
-
       {tab === 'overview' && renderOverview()}
       {tab === 'categories' && renderCategories()}
       {tab === 'conditions' && renderConditions()}

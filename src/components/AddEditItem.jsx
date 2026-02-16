@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { categories, conditions, locations } from '../utils/categories';
 import { todayStr } from '../utils/helpers';
 
@@ -20,8 +20,40 @@ export default function AddEditItem({ item, onSave, onClose }) {
     dimensions: item?.dimensions || '',
     notes: item?.notes || '',
   });
+  const [imagePreview, setImagePreview] = useState(item?.image || '');
+  const fileInputRef = useRef(null);
 
   const update = (field, val) => setForm(prev => ({ ...prev, [field]: val }));
+
+  const handleImageUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const maxDim = 800;
+        let w = img.width, h = img.height;
+        if (w > maxDim || h > maxDim) {
+          if (w > h) { h = h * maxDim / w; w = maxDim; }
+          else { w = w * maxDim / h; h = maxDim; }
+        }
+        canvas.width = w;
+        canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        setImagePreview(canvas.toDataURL('image/jpeg', 0.7));
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const clearImage = (e) => {
+    e.stopPropagation();
+    setImagePreview('');
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -30,6 +62,7 @@ export default function AddEditItem({ item, onSave, onClose }) {
       ...form,
       qtyOwned: parseInt(form.qtyOwned) || 1,
       unitValue: parseFloat(form.unitValue) || 0,
+      image: imagePreview || '',
     });
   };
 
@@ -40,6 +73,38 @@ export default function AddEditItem({ item, onSave, onClose }) {
         <div className="modal-title">{isEdit ? 'Edit Item' : 'Add New Item'}</div>
 
         <form onSubmit={handleSubmit}>
+          {/* Image Upload */}
+          <div className="form-group">
+            <label className="form-label">Photo</label>
+            <div
+              className={`img-upload-area ${imagePreview ? 'has-image' : ''}`}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              {imagePreview ? (
+                <>
+                  <img src={imagePreview} alt="Preview" className="img-preview" />
+                  <button type="button" className="img-clear-btn" onClick={clearImage}>✕</button>
+                </>
+              ) : (
+                <div className="img-placeholder">
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/>
+                    <circle cx="12" cy="13" r="4"/>
+                  </svg>
+                  <span>Tap to add photo</span>
+                </div>
+              )}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                onChange={handleImageUpload}
+                style={{ display: 'none' }}
+              />
+            </div>
+          </div>
+
           <div className="form-group">
             <label className="form-label">Item Name *</label>
             <input className="form-input" value={form.name} onChange={e => update('name', e.target.value)} required />
