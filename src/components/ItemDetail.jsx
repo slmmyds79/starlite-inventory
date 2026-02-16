@@ -91,6 +91,41 @@ export default function ItemDetail({ item, goBack, openEditItem, openCheckout, o
     printWindow.document.close();
   };
 
+  const downloadBarcodeImage = () => {
+    if (!barcodeRef.current) return;
+    const svg = barcodeRef.current;
+    const svgData = new XMLSerializer().serializeToString(svg);
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    const img = new Image();
+    img.onload = () => {
+      // High-res for crisp printing on label printers
+      const scale = 3;
+      canvas.width = img.width * scale;
+      canvas.height = (img.height + 60) * scale;
+      ctx.scale(scale, scale);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, img.width, img.height + 60);
+      // Brand text
+      ctx.fillStyle = '#888888';
+      ctx.font = '10px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText('✨ Starlite Events', img.width / 2, 14);
+      // Item name
+      ctx.fillStyle = '#1B2A4A';
+      ctx.font = 'bold 13px Arial';
+      ctx.fillText(item.name, img.width / 2, 32);
+      // Barcode
+      ctx.drawImage(img, 0, 42);
+      // Trigger download
+      const link = document.createElement('a');
+      link.download = `barcode-${item.itemId}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    };
+    img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
+  };
+
   return (
     <div className="page">
       <button className="back-btn" onClick={goBack}>
@@ -139,9 +174,14 @@ export default function ItemDetail({ item, goBack, openEditItem, openCheckout, o
         {/* Real Scannable Barcode */}
         <div className="barcode-display">
           <svg ref={barcodeRef}></svg>
-          <button className="barcode-print-btn" onClick={printBarcodeLabel} title="Print barcode label">
-            🖨️ Print Label
-          </button>
+          <div className="barcode-btn-row">
+            <button className="barcode-print-btn" onClick={printBarcodeLabel} title="Print barcode label">
+              🖨️ Print Label
+            </button>
+            <button className="barcode-print-btn" onClick={downloadBarcodeImage} title="Download barcode image for NIIMBOT or other label apps">
+              📥 Save Image
+            </button>
+          </div>
         </div>
       </div>
 

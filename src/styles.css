@@ -1014,6 +1014,12 @@ body {
   font-family: inherit;
 }
 .barcode-print-btn:hover { border-color: var(--navy); background: var(--cream); }
+.barcode-btn-row {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 8px;
+}
 
 /* ─────────────────────────────────────────────────────────── */
 /* QUICK PHOTO BUTTON */
