@@ -1,28 +1,34 @@
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
+import JsBarcode from 'jsbarcode';
 import { categoryIcons, conditionColors } from '../utils/categories';
 import { formatDate, formatCurrency } from '../utils/helpers';
-
-function generateBarcodeVisual(id) {
-  if (!id) return null;
-  const seed = id.split('').reduce((s, c) => s + c.charCodeAt(0), 0);
-  const bars = [];
-  for (let i = 0; i < 40; i++) {
-    const w = ((seed * (i + 1) * 7) % 3) + 1;
-    const gap = ((seed * (i + 1) * 13) % 2) + 1;
-    const h = 40 + (i % 5) * 2;
-    bars.push(<div key={i} className="barcode-bar" style={{ width: w, height: h, marginRight: gap }} />);
-  }
-  return (
-    <div className="barcode-display">
-      <div className="barcode-bars">{bars}</div>
-      <div className="barcode-text">{id}</div>
-    </div>
-  );
-}
 
 export default function ItemDetail({ item, goBack, openEditItem, openCheckout, openCheckin, openFlag, clearFlag, removeItem, onImageUpdate }) {
   const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
   const photoInputRef = useRef(null);
+  const barcodeRef = useRef(null);
+
+  useEffect(() => {
+    if (barcodeRef.current && item?.itemId) {
+      try {
+        JsBarcode(barcodeRef.current, item.itemId, {
+          format: 'CODE128',
+          width: 2,
+          height: 50,
+          displayValue: true,
+          fontSize: 14,
+          font: 'monospace',
+          fontOptions: 'bold',
+          textMargin: 6,
+          margin: 10,
+          background: '#ffffff',
+          lineColor: '#1B2A4A',
+        });
+      } catch (e) {
+        console.warn('Barcode generation failed:', e);
+      }
+    }
+  }, [item?.itemId]);
 
   if (!item) return null;
 
@@ -52,6 +58,37 @@ export default function ItemDetail({ item, goBack, openEditItem, openCheckout, o
       img.src = ev.target.result;
     };
     reader.readAsDataURL(file);
+  };
+
+  const printBarcodeLabel = () => {
+    if (!barcodeRef.current) return;
+    const svgData = barcodeRef.current.outerHTML;
+    const printWindow = window.open('', '_blank', 'width=400,height=300');
+    if (!printWindow) return;
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head><title>Barcode Label - ${item.itemId}</title>
+      <style>
+        body { margin: 0; padding: 20px; text-align: center; font-family: 'Inter', Arial, sans-serif; }
+        .label { display: inline-block; border: 1px dashed #ccc; padding: 16px 24px; border-radius: 8px; }
+        .label-brand { font-size: 10px; color: #888; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 4px; }
+        .label-name { font-size: 14px; font-weight: 700; color: #1B2A4A; margin-bottom: 8px; }
+        .label-barcode svg { display: block; margin: 0 auto; }
+        @media print { body { padding: 8px; } .label { border: none; padding: 8px; } }
+      </style>
+      </head>
+      <body>
+        <div class="label">
+          <div class="label-brand">✨ Starlite Events</div>
+          <div class="label-name">${item.name}</div>
+          <div class="label-barcode">${svgData}</div>
+        </div>
+        <script>window.onload = function() { window.print(); }</script>
+      </body>
+      </html>
+    `);
+    printWindow.document.close();
   };
 
   return (
@@ -98,8 +135,14 @@ export default function ItemDetail({ item, goBack, openEditItem, openCheckout, o
             />
           </>
         )}
-        {/* Barcode */}
-        {generateBarcodeVisual(item.itemId)}
+
+        {/* Real Scannable Barcode */}
+        <div className="barcode-display">
+          <svg ref={barcodeRef}></svg>
+          <button className="barcode-print-btn" onClick={printBarcodeLabel} title="Print barcode label">
+            🖨️ Print Label
+          </button>
+        </div>
       </div>
 
       {/* Flag Bar */}

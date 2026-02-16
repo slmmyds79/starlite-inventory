@@ -993,6 +993,27 @@ body {
   letter-spacing: 2px;
   color: var(--navy);
 }
+.barcode-display svg {
+  max-width: 100%;
+  height: auto;
+}
+.barcode-print-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 8px;
+  padding: 6px 14px;
+  border-radius: 6px;
+  border: 1.5px solid var(--gray-200);
+  background: white;
+  color: var(--navy);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+.barcode-print-btn:hover { border-color: var(--navy); background: var(--cream); }
 
 /* ─────────────────────────────────────────────────────────── */
 /* QUICK PHOTO BUTTON */
